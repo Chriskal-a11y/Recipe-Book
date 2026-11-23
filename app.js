@@ -35,8 +35,10 @@ function aheadOf(v){return v.steps.find(s=>s[2]==="a")}
 function heat(h){if(!h)return "";const [k,v]=h.split(":");
   const t=k==="H"?["hob","Hob",HOB[v]+" ("+v+")"]:k==="AF"?["af","Air fryer",v+"°C"]:["mw","Microwave",v+" W"];
   return `<span class="heat ${t[0]}">${t[1]} · ${t[2]}</span>`}
-function photo(r,cls="",ahead=false){const c=`var(${CAT_COLOR[r.category]||"--accent"})`;
-  return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${ahead?'<span class="badge">Prep night before</span>':""}<span class="gr">${esc(r.nameGr)}</span><span class="ph">Photo later</span></div>`}
+function photo(r,cls="",ahead=false){const c=`var(${CAT_COLOR[r.category]||"--accent"})`,u=Photos.url(r.id);
+  const badge=ahead?'<span class="badge">Prep night before</span>':"";
+  if(u)return `<div class="photo has-img ${cls}">${badge}<img src="${u}" alt="${esc(r.name)}"></div>`;
+  return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<span class="gr">${esc(r.nameGr)}</span></div>`}
 // Only cooking and waiting steps get a timer button; cutting and mixing steps just show their time.
 const needsTimer=s=>!!s[3]||/\b(rest|marinate|leave it|soak|fridge|simmer|boil|bake|roast|fry)/i.test(s[0]);
 function fmtQty(q,unit){
@@ -115,7 +117,9 @@ function dish(r){
       <div class="fact"><span class="label">Difficulty</span><b>${v.difficulty}</b></div>
       <div class="fact"><span class="label">Keeps</span><b>${r.keeps} day${r.keeps>1?"s":""}</b></div></div>
     ${a?`<div class="ahead"><b>Start the night before.</b> ${esc(a[0])}</div>`:""}
-    <div class="actions"><button class="btn small" id="toshop">Add ingredients to list</button><button class="btn small" id="toplan">Add to schedule</button></div>
+    <div class="actions"><button class="btn small" id="toshop">Add ingredients to list</button><button class="btn small" id="toplan">Add to schedule</button>
+      <label class="btn small" for="photoin">${Photos.url(r.id)?"Change photo":"Add photo"}</label>${Photos.url(r.id)?'<button class="btn small" id="photorm">Remove photo</button>':""}
+      <input type="file" id="photoin" accept="image/*" hidden></div><p class="flag" id="photomsg" hidden></p>
     <div class="section"><h3>Ingredients <span class="stepper"><button id="minus" aria-label="Fewer portions">−</button><span>${state.portions} portion${state.portions>1?"s":""}</span><button id="plus" aria-label="More portions">+</button></span></h3>
       <ul class="ing">${main.map(i=>`<li><span class="q">${fmtQty(i[0]*k,i[1])}</span><span>${esc(i[2])}</span></li>`).join("")}</ul>
       ${staples.length?`<div class="staples"><b>From your pantry:</b> ${staples.map(i=>esc((i[0]!=null?fmtQty(i[0]*k,i[1])+" ":"")+i[2])).join(", ")}</div>`:""}</div>
@@ -130,6 +134,9 @@ function dish(r){
   const steps=v.steps.filter(s=>s[2]!=="a");
   app.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{const i=+b.dataset.step;startTimer(`${r.name} · step ${i+1}`,steps[i][1])});
   document.getElementById("toshop").onclick=e=>{addRecipeToShop(r.id,state.level,state.portions);e.target.textContent="Added to Ingredients ✓"};
+  document.getElementById("photoin").onchange=async e=>{const f=e.target.files[0];if(!f)return;const m=document.getElementById("photomsg");m.hidden=false;m.textContent="Saving photo…";
+    try{await Photos.add(r.id,f);dish(r)}catch(err){m.textContent=err.message}};
+  const prm=document.getElementById("photorm");if(prm)prm.onclick=async e=>{if(e.target.dataset.sure){await Photos.remove(r.id);dish(r)}else{e.target.dataset.sure=1;e.target.textContent="Tap again to remove"}};
   document.getElementById("toplan").onclick=()=>planSheet(null,null,{id:r.id,level:state.level,portions:DEFAULT_PORTIONS});
 }
 
@@ -370,5 +377,5 @@ let lastId=null;
 function route(){closeSheet();const id=location.hash.slice(1),r=byId(id);
   if(id==="basics"||id==="schedule"||id==="shop"||id==="kitchen"){lastId=null;({basics,schedule:scheduleView,shop:shopView,kitchen:kitchenView})[id]();window.scrollTo(0,0);return}
   if(r){if(id!==lastId){state.level=state.pendingLevel||"intermediate";state.portions=BASE;window.scrollTo(0,0)}state.pendingLevel=null;lastId=id;dish(r)}else{lastId=null;list()}}
-window.addEventListener("hashchange",route);route();renderTimers();Sync.init();
+window.addEventListener("hashchange",route);route();renderTimers();Photos.loadAll().then(()=>{if(document.getElementById("sheet").hidden)route()});Sync.init();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))}

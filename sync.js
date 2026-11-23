@@ -50,8 +50,11 @@ const Sync = (() => {
       save("rb-meta", meta);
     }
     if (needPush || pending) await push(); else setStatus("synced");
+    try { if (await Photos.sync(client, user)) changed = true; } catch (e) {}
     if (changed) { if (document.getElementById("sheet").hidden) route(); else window.__rerender = true; }
   }
+  let photoTimer = null;
+  function photoChanged() { clearTimeout(photoTimer); photoTimer = setTimeout(async () => { if (client && user) { try { await Photos.sync(client, user); } catch (e) {} } }, 1000); }
   async function signIn(email, password) { const { error } = await client.auth.signInWithPassword({ email, password }); return error && error.message; }
   async function signUp(email, password) {
     const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
@@ -59,6 +62,6 @@ const Sync = (() => {
     return data.session ? null : "CHECK_EMAIL";
   }
   async function signOut() { await client.auth.signOut(); user = null; setStatus("signedout"); }
-  return { init, touch, push, pull, signIn, signUp, signOut, enabled, onStatus: f => listeners.push(f),
+  return { init, touch, photoChanged, push, pull, signIn, signUp, signOut, enabled, onStatus: f => listeners.push(f),
     get status() { return status; }, get email() { return user && user.email; } };
 })();
