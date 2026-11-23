@@ -185,3 +185,4 @@ ul.ing li.main{grid-template-columns:92px 1fr auto;align-items:center}
 .penform{grid-column:1/-1;display:flex;gap:8px;align-items:center}
 .penform[hidden]{display:none}
 .penform input{width:110px;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.slotbtn.out{font-style:italic}

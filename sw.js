@@ -1,5 +1,5 @@
 // Keeps the app working offline. Bump VERSION whenever recipes or the app change.
-const VERSION = "v12";
+const VERSION = "v13";
 const FILES = ["./", "index.html", "style.css", "app.js", "recipes.js", "sync.js", "photos.js", "config.js", "vendor/supabase-2.118.0.js", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k))))); self.clients.claim(); });

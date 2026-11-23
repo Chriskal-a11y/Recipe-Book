@@ -161,13 +161,14 @@ function scheduleView(){
     <div class="row"><button class="btn small" id="weekshop">Add this week to Ingredients</button>${state.weekOffset?'<button class="btn small" id="thisweek">Back to this week</button>':""}</div></header>
     <div class="days">${days.map(d=>{const key=isoDate(d),day=schedule[key]||{};let kc=0;
       const slots=SLOTS.map(s=>{const p=day[s],r=p&&byId(p.id);if(r)kc+=kcalPerPortion(r.versions[p.level]);
+        if(p&&p.id==="out")return `<div class="slot"><span class="label">${s}</span><button class="slotbtn filled out" data-date="${key}" data-slot="${s}">🍽 Eating out</button></div>`;
         return `<div class="slot"><span class="label">${s}</span><button class="slotbtn ${r?"filled":""}" data-date="${key}" data-slot="${s}">${r?`${esc(r.name)}<small>${LEVEL_NAME[p.level]} · ${p.portions} portion${p.portions>1?"s":""} · ${fmtMin(totalMin(r.versions[p.level]))}</small>`:"+ Pick a dish"}</button></div>`}).join("");
       return `<div class="day ${key===today?"today":""}"><h3>${d.toLocaleDateString("en-GB",{weekday:"long"})}<small>${f(d)}</small></h3>${slots}${kc?`<div class="daykcal">${fmtK(kc)} for one portion of each</div>`:""}</div>`}).join("")}</div>`;
   bindSync();
   document.getElementById("prev").onclick=()=>{state.weekOffset--;scheduleView()};
   document.getElementById("next").onclick=()=>{state.weekOffset++;scheduleView()};
   const tw=document.getElementById("thisweek");if(tw)tw.onclick=()=>{state.weekOffset=0;scheduleView()};
-  document.getElementById("weekshop").onclick=e=>{let n=0;for(const d of days){const day=schedule[isoDate(d)]||{};for(const s of SLOTS)if(day[s]){addRecipeToShop(day[s].id,day[s].level,day[s].portions);n++}}
+  document.getElementById("weekshop").onclick=e=>{let n=0;for(const d of days){const day=schedule[isoDate(d)]||{};for(const s of SLOTS)if(day[s]&&byId(day[s].id)){addRecipeToShop(day[s].id,day[s].level,day[s].portions);n++}}
     e.target.textContent=n?`Added ${n} meal${n>1?"s":""} to Ingredients ✓`:"Nothing planned this week yet"};
   app.querySelectorAll(".slotbtn").forEach(b=>b.onclick=()=>planSheet(b.dataset.date,b.dataset.slot,(schedule[b.dataset.date]||{})[b.dataset.slot]));
 }
@@ -182,7 +183,7 @@ function planSheet(date,slot,current){
       <div class="row"><select id="pday" class="search" style="flex:2">${days.map(d=>`<option value="${isoDate(d)}" ${isoDate(d)===date?"selected":""}>${d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}</option>`).join("")}</select>
         <select id="pslot" class="search" style="flex:1">${SLOTS.map(x=>`<option ${x===slot?"selected":""}>${x}</option>`).join("")}</select></div>
       <input class="search" id="pq" type="search" placeholder="Search dishes" value="${esc(q)}">
-      <div class="picklist">${list.map(r=>`<button class="pick" data-id="${r.id}" aria-pressed="${r.id===p.id}"><span>${esc(r.name)}<br><small>${esc(r.nameGr)}</small></span><small>${fmtMin(totalMin(r.versions[p.level]))}</small></button>`).join("")}</div>
+      <div class="picklist"><button class="pick out" data-id="out" aria-pressed="${p.id==="out"}"><span>🍽 Eating out<br><small>No cooking, nothing to buy</small></span></button>${list.map(r=>`<button class="pick" data-id="${r.id}" aria-pressed="${r.id===p.id}"><span>${esc(r.name)}<br><small>${esc(r.nameGr)}</small></span><small>${fmtMin(totalMin(r.versions[p.level]))}</small></button>`).join("")}</div>
       <div class="seg">${LEVELS.map(([k,l])=>`<button data-level="${k}" aria-pressed="${k===p.level}">${l}</button>`).join("")}</div>
       <div class="row" style="justify-content:space-between"><span class="label">Portions</span><span class="stepper"><button id="pm">−</button><span>${p.portions}</span><button id="pp">+</button></span></div>
       <div class="foot">${current&&current.id?'<button class="btn" id="premove">Remove</button>':'<button class="btn" id="pcancel">Cancel</button>'}<button class="btn primary" id="psave" ${p.id?"":"disabled"}>Save</button></div>`;
@@ -228,7 +229,7 @@ function shopView(){
   bindSync();
   app.querySelectorAll("[data-key]").forEach(c=>c.onchange=()=>{const it=shop.find(x=>x.key===c.dataset.key);it.checked=c.checked;setShop();
     if(c.checked&&!it.staple&&ALL_ING.includes(it.name)&&!pantry.includes(it.name)){pantry.push(it.name);setPantry()}shopView()});
-  document.getElementById("addweek").onclick=e=>{let n=0;for(const d of weekDays(0)){const day=schedule[isoDate(d)]||{};for(const s of SLOTS)if(day[s]){addRecipeToShop(day[s].id,day[s].level,day[s].portions);n++}}
+  document.getElementById("addweek").onclick=e=>{let n=0;for(const d of weekDays(0)){const day=schedule[isoDate(d)]||{};for(const s of SLOTS)if(day[s]&&byId(day[s].id)){addRecipeToShop(day[s].id,day[s].level,day[s].portions);n++}}
     if(n)shopView();else e.target.textContent="Nothing planned this week yet"};
   document.getElementById("addrecipe").onclick=recipePickSheet;
   const add=()=>{const v=document.getElementById("newitem").value.trim();if(!v)return;shop.push({key:"own|"+Date.now(),name:v,unit:"",qty:null,staple:false,checked:false,src:[]});setShop();shopView()};
