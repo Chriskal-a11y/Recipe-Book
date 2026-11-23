@@ -111,7 +111,7 @@ function dish(r){
   const main=v.ing.filter(i=>!i[3]),staples=v.ing.filter(i=>i[3]);
   app.innerHTML=`<div class="dish"><button class="back" id="back">← All dishes</button>
     <div class="levels"><div class="seg" role="group" aria-label="Version">${LEVELS.map(([k2,l])=>`<button data-level="${k2}" aria-pressed="${k2===state.level}">${l}</button>`).join("")}</div></div>
-    ${photo(r,"hero")}
+    <div class="herowrap">${photo(r,"hero")}<label class="photobtn" for="photoin">📷 ${Photos.url(r.id)?"Change photo":"Add your photo"}</label></div>
     ${!Photos.url(r.id)&&STOCK[r.id]?`<p class="credit">Stock photo: <a href="${STOCK[r.id].page}" target="_blank" rel="noopener">${esc(STOCK[r.id].by)}, ${esc(STOCK[r.id].lic)}</a></p>`:""}
     <div class="title"><div class="label">${esc(r.category)} · ${r.meals.map(esc).join(", ")}</div><h2>${esc(r.name)}</h2><div class="sub">${esc(r.nameGr)}</div></div>
     <div class="facts"><div class="fact"><span class="label">Total time</span><b>${fmtMin(totalMin(v))}</b></div>
@@ -120,7 +120,7 @@ function dish(r){
       <div class="fact"><span class="label">Keeps</span><b>${r.keeps} day${r.keeps>1?"s":""}</b></div></div>
     ${a?`<div class="ahead"><b>Start the night before.</b> ${esc(a[0])}</div>`:""}
     <div class="actions"><button class="btn small" id="toshop">Add ingredients to list</button><button class="btn small" id="toplan">Add to schedule</button>
-      <label class="btn small" for="photoin">${Photos.url(r.id)?"Change photo":"Add photo"}</label>${Photos.url(r.id)?'<button class="btn small" id="photorm">Remove photo</button>':""}
+      ${Photos.url(r.id)?'<button class="btn small" id="photorm">Remove my photo</button>':""}
       <input type="file" id="photoin" accept="image/*" hidden></div><p class="flag" id="photomsg" hidden></p>
     <div class="section"><h3>Ingredients <span class="stepper"><button id="minus" aria-label="Fewer portions">−</button><span>${state.portions} portion${state.portions>1?"s":""}</span><button id="plus" aria-label="More portions">+</button></span></h3>
       <ul class="ing">${main.map(i=>`<li><span class="q">${fmtQty(i[0]*k,i[1])}</span><span>${esc(i[2])}</span></li>`).join("")}</ul>
