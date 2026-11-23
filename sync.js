@@ -46,7 +46,7 @@ const Sync = (() => {
   }
   async function signIn(email, password) { const { error } = await client.auth.signInWithPassword({ email, password }); return error && error.message; }
   async function signUp(email, password) {
-    const { data, error } = await client.auth.signUp({ email, password });
+    const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) return error.message;
     return data.session ? null : "CHECK_EMAIL";
   }
