@@ -161,3 +161,17 @@ ul.basics .q{font-weight:500;text-align:right}
 .timer.ring{background:var(--warn);color:#fff}
 @media (prefers-reduced-motion:no-preference){.timer.ring{animation:pulse 1s infinite}@keyframes pulse{50%{transform:scale(1.02)}}}
 @media (min-width:700px){.hero{aspect-ratio:21/9}}
+
+/* ingredients tabs and my kitchen */
+.seg.two{grid-template-columns:1fr 1fr}
+.seg a{border-radius:9px;padding:9px 4px;font-weight:600;font-size:14px;color:var(--muted);text-align:center;text-decoration:none}
+.seg a[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.kitchen{--k:var(--af)}
+.kgroup{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.kchip{border-style:dashed}
+.kchip[aria-pressed="true"]{background:var(--k);border-color:var(--k);border-style:solid;color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .kchip[aria-pressed="true"]{color:#0d1a20}}
+:root[data-theme="dark"] .kchip[aria-pressed="true"]{color:#0d1a20}
+.kdish{display:flex;gap:10px;align-items:center;background:color-mix(in srgb,var(--k) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--k) 30%,var(--line));border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.kopen{flex:1;min-width:0;text-align:left;border:none;background:none;padding:0;display:flex;flex-direction:column;gap:4px}
+.kmiss{font-size:13px;color:var(--warn)}

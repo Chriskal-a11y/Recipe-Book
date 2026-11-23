@@ -4,7 +4,8 @@ const Sync = (() => {
   const cfg = window.SYNC_CONFIG || {};
   let client = null, user = null, timer = null, pending = false, status = "off";
   let meta = null; // loaded on first use, after the app has started
-  const M = () => meta || (meta = load("rb-meta", { scheduleAt: 0, shopAt: 0 }));
+  const M = () => meta || (meta = Object.assign({ scheduleAt: 0, shopAt: 0, pantryAt: 0 }, load("rb-meta", {})));
+  let hasPantryCol = true; // false if the database has no pantry column yet
   const listeners = [];
   const setStatus = s => { status = s; listeners.forEach(f => f(s)); };
 
@@ -25,7 +26,10 @@ const Sync = (() => {
   async function push() {
     if (!client || !user) return; M();
     setStatus("syncing");
-    const { error } = await client.from("user_data").upsert({ user_id: user.id, schedule, schedule_at: meta.scheduleAt, shop, shop_at: meta.shopAt, updated_at: new Date().toISOString() });
+    const row = { user_id: user.id, schedule, schedule_at: meta.scheduleAt, shop, shop_at: meta.shopAt, updated_at: new Date().toISOString() };
+    if (hasPantryCol) Object.assign(row, { pantry, pantry_at: meta.pantryAt });
+    let { error } = await client.from("user_data").upsert(row);
+    if (error && hasPantryCol && /pantry/.test(error.message || "")) { hasPantryCol = false; delete row.pantry; delete row.pantry_at; ({ error } = await client.from("user_data").upsert(row)); }
     if (error) { pending = true; setStatus("offline"); } else { pending = false; setStatus("synced"); }
   }
   async function pull() {
@@ -39,6 +43,10 @@ const Sync = (() => {
       else if (meta.scheduleAt > data.schedule_at) needPush = true;
       if (data.shop_at > meta.shopAt) { shop = data.shop || []; meta.shopAt = data.shop_at; save("rb-shop", shop); changed = true; }
       else if (meta.shopAt > data.shop_at) needPush = true;
+      if ("pantry" in data) {
+        if (data.pantry_at > meta.pantryAt) { pantry = data.pantry || []; meta.pantryAt = data.pantry_at; save("rb-pantry", pantry); changed = true; }
+        else if (meta.pantryAt > data.pantry_at) needPush = true;
+      } else hasPantryCol = false;
       save("rb-meta", meta);
     }
     if (needPush || pending) await push(); else setStatus("synced");

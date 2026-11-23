@@ -20,9 +20,10 @@ const ICON={
 // ---------- storage ----------
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-let schedule=load("rb-schedule",{}); let shop=load("rb-shop",[]); let timers=load("rb-timers",[]);
+let schedule=load("rb-schedule",{}); let shop=load("rb-shop",[]); let pantry=load("rb-pantry",[]); let timers=load("rb-timers",[]);
 function setSchedule(){save("rb-schedule",schedule);Sync.touch("schedule")}
 function setShop(){save("rb-shop",shop);Sync.touch("shop")}
+function setPantry(){save("rb-pantry",pantry);Sync.touch("pantry")}
 const state={cat:"all",meal:"all",time:"any",q:"",level:"intermediate",portions:BASE,weekOffset:0};
 
 // ---------- helpers ----------
@@ -198,7 +199,7 @@ function shopView(){
   const buy=shop.filter(x=>!x.staple),home=shop.filter(x=>x.staple);
   const left=buy.filter(x=>!x.checked).length;
   const li=x=>`<li class="${x.checked?"done":""}"><label><input type="checkbox" data-key="${esc(x.key)}" ${x.checked?"checked":""}><span><span class="name">${esc(x.name)}</span>${x.src.length?`<span class="src">${esc(x.src.join(", "))}</span>`:""}</span><span class="q">${fmtQty(x.qty,x.unit)}</span></label></li>`;
-  app.innerHTML=`<header class="top"><div class="headrow"><h1>Ingredients</h1>${syncBtn()}</div>
+  app.innerHTML=`<header class="top"><div class="headrow"><h1>Ingredients</h1>${syncBtn()}</div>${ingTabs("shop")}
     <p>${shop.length?`${left} of ${buy.length} item${buy.length===1?"":"s"} left to buy`:"Your shopping list is empty."}</p>
     <div class="row"><button class="btn small" id="addweek">Add this week's meals</button><button class="btn small" id="addrecipe">Add from a recipe</button></div></header>
     ${shop.length?"":`<p class="empty">Plan meals in Schedule and add the week here, or open any dish and tap "Add ingredients to list".</p>`}
@@ -207,7 +208,8 @@ function shopView(){
     ${home.length?`<div class="section"><h3>Check you have at home</h3><ul class="shop">${home.map(li).join("")}</ul></div>`:""}
     ${shop.length?`<div class="actions" style="margin-top:20px"><button class="btn small" id="clearticked">Remove ticked items</button><button class="btn small" id="clearall">Clear the whole list</button></div>`:""}`;
   bindSync();
-  app.querySelectorAll("[data-key]").forEach(c=>c.onchange=()=>{const it=shop.find(x=>x.key===c.dataset.key);it.checked=c.checked;setShop();shopView()});
+  app.querySelectorAll("[data-key]").forEach(c=>c.onchange=()=>{const it=shop.find(x=>x.key===c.dataset.key);it.checked=c.checked;setShop();
+    if(c.checked&&!it.staple&&ALL_ING.includes(it.name)&&!pantry.includes(it.name)){pantry.push(it.name);setPantry()}shopView()});
   document.getElementById("addweek").onclick=e=>{let n=0;for(const d of weekDays(0)){const day=schedule[isoDate(d)]||{};for(const s of SLOTS)if(day[s]){addRecipeToShop(day[s].id,day[s].level,day[s].portions);n++}}
     if(n)shopView();else e.target.textContent="Nothing planned this week yet"};
   document.getElementById("addrecipe").onclick=recipePickSheet;
@@ -230,6 +232,52 @@ function recipePickSheet(){
     s.querySelector("#pc").onclick=closeSheet;
     s.querySelector("#pa").onclick=()=>{if(!p.id)return;addRecipeToShop(p.id,p.level,p.portions);closeSheet();shopView()}};
   openSheet("",render);
+}
+
+
+// ---------- my kitchen: what can I make ----------
+// Spices and small herbs don't decide whether you can cook a dish; salt, oil and other staples are assumed.
+const MINOR=new Set(["bay leaf","rosemary","thyme","cinnamon stick","allspice berries","whole cloves","ground cumin","smoked paprika","sweet paprika","boukovo (chilli flakes)","chilli flakes","orange peel","ground cinnamon","ground cloves","vanilla extract","baking powder"]);
+const ALL_ING=[...new Set(RECIPES.flatMap(r=>Object.values(r.versions).flatMap(v=>v.ing.filter(i=>!i[3]).map(i=>i[2]))))].filter(n=>!MINOR.has(n)).sort();
+const ING_GROUPS=[
+ ["Vegetables & fruit",["onion","garlic","carrot","celery","potatoes","courgette","aubergine","red pepper","leek","spring onions","ripe tomatoes","cherry tomatoes","green beans","frozen peas","frozen artichoke hearts","lemon","orange","apples","cucumber","parsley","dill","mint","basil"]],
+ ["Pasta, rice & legumes",["spaghetti","orzo","hilopites (egg noodles)","long-grain rice","brown lentils","dried chickpeas","dried white beans"]],
+ ["Meat & fish",["beef mince","pork mince","beef chuck","chicken thighs (bone-in)","salmon fillets (about 150 g each)"]],
+ ["Dairy & eggs",["feta","kefalotyri","aged graviera","Greek yogurt","butter","milk","egg","vanilla ice cream"]]];
+function ingGroups(){const used=new Set(ING_GROUPS.flatMap(g=>g[1]));
+  return [...ING_GROUPS.map(([t,l])=>[t,l.filter(n=>ALL_ING.includes(n))]),["Cupboard",ALL_ING.filter(n=>!used.has(n))]]}
+function missingFor(v){return [...new Set(v.ing.filter(i=>!i[3]&&!MINOR.has(i[2])&&!pantry.includes(i[2])).map(i=>i[2]))]}
+function bestMatch(r){let best=null;
+  for(const [lv] of [["advanced"],["intermediate"],["basic"]]){const m=missingFor(r.versions[lv]);if(!best||m.length<best.missing.length)best={level:lv,missing:m}}
+  return best}
+function ingTabs(active){return `<div class="seg two"><a href="#shop" aria-pressed="${active==="shop"}">Shopping list</a><a href="#kitchen" aria-pressed="${active==="kitchen"}">My kitchen</a></div>`}
+let kq="";
+function kitchenView(){
+  island("shop");
+  const matches=RECIPES.map(r=>({r,...bestMatch(r)}));
+  const ready=matches.filter(m=>!m.missing.length),almost=matches.filter(m=>m.missing.length>0&&m.missing.length<=2).sort((a,b)=>a.missing.length-b.missing.length);
+  const card=m=>{const v=m.r.versions[m.level];return `<div class="kdish"><button class="kopen" data-id="${m.r.id}" data-level="${m.level}"><b>${esc(m.r.name)}</b><span class="meta"><span class="pill">${LEVEL_NAME[m.level]}</span>${ICON.clock}${fmtMin(totalMin(v))}</span>
+    ${m.missing.length?`<span class="kmiss">Missing: ${m.missing.map(esc).join(", ")}</span>`:""}</button>
+    ${m.missing.length?`<button class="btn small" data-addmiss="${m.r.id}|${m.level}">Add to list</button>`:""}</div>`};
+  app.innerHTML=`<header class="top"><div class="headrow"><h1>Ingredients</h1>${syncBtn()}</div>${ingTabs("kitchen")}
+    <p>Tap what you have at home. Salt, pepper, oil and spices are assumed.</p></header>
+    <div class="kitchen">
+    <div class="section"><h3>You can make${pantry.length?` <span class="label">${ready.length} dish${ready.length===1?"":"es"}</span>`:""}</h3>
+      ${pantry.length?(ready.length?ready.map(card).join(""):'<p class="bnote">Nothing complete yet. Add a few more ingredients below.</p>'):'<p class="bnote">Pick your ingredients below and dishes appear here.</p>'}</div>
+    ${almost.length&&pantry.length?`<div class="section"><h3>Almost, missing 1–2 things</h3>${almost.map(card).join("")}</div>`:""}
+    <div class="section"><h3>In my kitchen <span class="label">${pantry.length} selected</span></h3>
+      <input class="search" id="kq" type="search" placeholder="Find an ingredient" value="${esc(kq)}">
+      ${ingGroups().map(([t,l])=>{const f=l.filter(n=>!kq||n.toLowerCase().includes(kq));return f.length?`<div class="kgroup"><div class="label">${t}</div><div class="chips">${f.map(n=>`<button class="chip kchip" data-ing="${esc(n)}" aria-pressed="${pantry.includes(n)}">${esc(n)}</button>`).join("")}</div></div>`:""}).join("")}
+      ${pantry.length?'<div class="actions"><button class="btn small" id="kclear">Clear my kitchen</button></div>':""}</div></div>`;
+  bindSync();
+  app.querySelectorAll("[data-ing]").forEach(b=>b.onclick=()=>{const n=b.dataset.ing;pantry=pantry.includes(n)?pantry.filter(x=>x!==n):[...pantry,n];setPantry();const y=scrollY;kitchenView();scrollTo(0,y)});
+  const q=document.getElementById("kq");q.oninput=e=>{kq=e.target.value.trim().toLowerCase();const y=scrollY;kitchenView();const n=document.getElementById("kq");n.focus();n.setSelectionRange(n.value.length,n.value.length);scrollTo(0,y)};
+  app.querySelectorAll(".kopen").forEach(b=>b.onclick=()=>{state.pendingLevel=b.dataset.level;location.hash=b.dataset.id});
+  app.querySelectorAll("[data-addmiss]").forEach(b=>b.onclick=()=>{const [id,lv]=b.dataset.addmiss.split("|"),r=byId(id),miss=missingFor(r.versions[lv]),k=DEFAULT_PORTIONS/BASE;
+    for(const [q2,u,name] of r.versions[lv].ing){if(!miss.includes(name))continue;const key=name+"|"+u;let it=shop.find(x=>x.key===key);
+      if(!it){it={key,name,unit:u,qty:null,staple:false,checked:false,src:[]};shop.push(it)}if(q2!=null)it.qty=(it.qty||0)+q2*k;it.checked=false;if(!it.src.includes(r.name))it.src.push(r.name)}
+    setShop();b.textContent="Added ✓";b.disabled=true});
+  const kc=document.getElementById("kclear");if(kc)kc.onclick=e=>{if(e.target.dataset.sure){pantry=[];setPantry();kitchenView()}else{e.target.dataset.sure=1;e.target.textContent="Tap again to clear"}};
 }
 
 // ---------- kitchen basics ----------
@@ -320,7 +368,7 @@ setInterval(tick,500);
 // ---------- routing ----------
 let lastId=null;
 function route(){closeSheet();const id=location.hash.slice(1),r=byId(id);
-  if(id==="basics"||id==="schedule"||id==="shop"){lastId=null;({basics,schedule:scheduleView,shop:shopView})[id]();window.scrollTo(0,0);return}
-  if(r){if(id!==lastId){state.level="intermediate";state.portions=BASE;window.scrollTo(0,0)}lastId=id;dish(r)}else{lastId=null;list()}}
+  if(id==="basics"||id==="schedule"||id==="shop"||id==="kitchen"){lastId=null;({basics,schedule:scheduleView,shop:shopView,kitchen:kitchenView})[id]();window.scrollTo(0,0);return}
+  if(r){if(id!==lastId){state.level=state.pendingLevel||"intermediate";state.portions=BASE;window.scrollTo(0,0)}state.pendingLevel=null;lastId=id;dish(r)}else{lastId=null;list()}}
 window.addEventListener("hashchange",route);route();renderTimers();Sync.init();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))}
