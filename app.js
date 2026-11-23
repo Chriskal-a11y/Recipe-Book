@@ -21,6 +21,8 @@ const ICON={
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 let schedule=load("rb-schedule",{}); let shop=load("rb-shop",[]); let timers=load("rb-timers",[]);
+function setSchedule(){save("rb-schedule",schedule);Sync.touch("schedule")}
+function setShop(){save("rb-shop",shop);Sync.touch("shop")}
 const state={cat:"all",meal:"all",time:"any",q:"",level:"intermediate",portions:BASE,weekOffset:0};
 
 // ---------- helpers ----------
@@ -59,7 +61,7 @@ function island(active){
 // ---------- sheet ----------
 function openSheet(html,bind){const s=document.getElementById("sheet"),sc=document.getElementById("scrim");
   s.innerHTML='<div class="grab"></div>'+html;s.hidden=false;sc.hidden=false;sc.onclick=closeSheet;if(bind)bind(s)}
-function closeSheet(){document.getElementById("sheet").hidden=true;document.getElementById("scrim").hidden=true}
+function closeSheet(){document.getElementById("sheet").hidden=true;document.getElementById("scrim").hidden=true;if(window.__rerender){window.__rerender=false;route()}}
 
 // ---------- dishes list ----------
 function filterLabels(){return [
@@ -135,13 +137,14 @@ function scheduleView(){
   island("schedule");
   const days=weekDays(state.weekOffset),today=isoDate(new Date());
   const f=d=>d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-  app.innerHTML=`<header class="top"><h1>Schedule</h1>
+  app.innerHTML=`<header class="top"><div class="headrow"><h1>Schedule</h1>${syncBtn()}</div>
     <div class="weeknav"><button class="iconbtn" id="prev" aria-label="Previous week">‹</button><b>${f(days[0])} – ${f(days[6])}</b><button class="iconbtn" id="next" aria-label="Next week">›</button></div>
     <div class="row"><button class="btn small" id="weekshop">Add this week to Ingredients</button>${state.weekOffset?'<button class="btn small" id="thisweek">Back to this week</button>':""}</div></header>
     <div class="days">${days.map(d=>{const key=isoDate(d),day=schedule[key]||{};let kc=0;
       const slots=SLOTS.map(s=>{const p=day[s],r=p&&byId(p.id);if(r)kc+=kcalPerPortion(r.versions[p.level]);
         return `<div class="slot"><span class="label">${s}</span><button class="slotbtn ${r?"filled":""}" data-date="${key}" data-slot="${s}">${r?`${esc(r.name)}<small>${LEVEL_NAME[p.level]} · ${p.portions} portion${p.portions>1?"s":""} · ${fmtMin(totalMin(r.versions[p.level]))}</small>`:"+ Pick a dish"}</button></div>`}).join("");
       return `<div class="day ${key===today?"today":""}"><h3>${d.toLocaleDateString("en-GB",{weekday:"long"})}<small>${f(d)}</small></h3>${slots}${kc?`<div class="daykcal">${fmtK(kc)} for one portion of each</div>`:""}</div>`}).join("")}</div>`;
+  bindSync();
   document.getElementById("prev").onclick=()=>{state.weekOffset--;scheduleView()};
   document.getElementById("next").onclick=()=>{state.weekOffset++;scheduleView()};
   const tw=document.getElementById("thisweek");if(tw)tw.onclick=()=>{state.weekOffset=0;scheduleView()};
@@ -171,9 +174,9 @@ function planSheet(date,slot,current){
     s.querySelectorAll("[data-level]").forEach(b=>b.onclick=()=>{p.level=b.dataset.level;render(s)});
     s.querySelector("#pm").onclick=()=>{if(p.portions>1){p.portions--;render(s)}};
     s.querySelector("#pp").onclick=()=>{if(p.portions<20){p.portions++;render(s)}};
-    const rm=s.querySelector("#premove");if(rm)rm.onclick=()=>{delete (schedule[date]||{})[slot];save("rb-schedule",schedule);closeSheet();route()};
+    const rm=s.querySelector("#premove");if(rm)rm.onclick=()=>{delete (schedule[date]||{})[slot];setSchedule();closeSheet();route()};
     const c=s.querySelector("#pcancel");if(c)c.onclick=closeSheet;
-    s.querySelector("#psave").onclick=()=>{if(!p.id)return;(schedule[date]=schedule[date]||{})[slot]={id:p.id,level:p.level,portions:p.portions};save("rb-schedule",schedule);closeSheet();
+    s.querySelector("#psave").onclick=()=>{if(!p.id)return;(schedule[date]=schedule[date]||{})[slot]={id:p.id,level:p.level,portions:p.portions};setSchedule();closeSheet();
       if(location.hash==="#schedule")scheduleView();else location.hash="schedule"};
   };
   openSheet("",render);
@@ -188,14 +191,14 @@ function addRecipeToShop(id,level,portions){
     if(q!=null)it.qty=(it.qty||0)+q*k;
     it.checked=false;if(!it.src.includes(r.name))it.src.push(r.name);
   }
-  save("rb-shop",shop);
+  setShop();
 }
 function shopView(){
   island("shop");
   const buy=shop.filter(x=>!x.staple),home=shop.filter(x=>x.staple);
   const left=buy.filter(x=>!x.checked).length;
   const li=x=>`<li class="${x.checked?"done":""}"><label><input type="checkbox" data-key="${esc(x.key)}" ${x.checked?"checked":""}><span><span class="name">${esc(x.name)}</span>${x.src.length?`<span class="src">${esc(x.src.join(", "))}</span>`:""}</span><span class="q">${fmtQty(x.qty,x.unit)}</span></label></li>`;
-  app.innerHTML=`<header class="top"><h1>Ingredients</h1>
+  app.innerHTML=`<header class="top"><div class="headrow"><h1>Ingredients</h1>${syncBtn()}</div>
     <p>${shop.length?`${left} of ${buy.length} item${buy.length===1?"":"s"} left to buy`:"Your shopping list is empty."}</p>
     <div class="row"><button class="btn small" id="addweek">Add this week's meals</button><button class="btn small" id="addrecipe">Add from a recipe</button></div></header>
     ${shop.length?"":`<p class="empty">Plan meals in Schedule and add the week here, or open any dish and tap "Add ingredients to list".</p>`}
@@ -203,14 +206,15 @@ function shopView(){
     <div class="addrow"><input class="search" id="newitem" placeholder="Add something else, e.g. bread"><button class="btn" id="additem">Add</button></div>
     ${home.length?`<div class="section"><h3>Check you have at home</h3><ul class="shop">${home.map(li).join("")}</ul></div>`:""}
     ${shop.length?`<div class="actions" style="margin-top:20px"><button class="btn small" id="clearticked">Remove ticked items</button><button class="btn small" id="clearall">Clear the whole list</button></div>`:""}`;
-  app.querySelectorAll("[data-key]").forEach(c=>c.onchange=()=>{const it=shop.find(x=>x.key===c.dataset.key);it.checked=c.checked;save("rb-shop",shop);shopView()});
+  bindSync();
+  app.querySelectorAll("[data-key]").forEach(c=>c.onchange=()=>{const it=shop.find(x=>x.key===c.dataset.key);it.checked=c.checked;setShop();shopView()});
   document.getElementById("addweek").onclick=e=>{let n=0;for(const d of weekDays(0)){const day=schedule[isoDate(d)]||{};for(const s of SLOTS)if(day[s]){addRecipeToShop(day[s].id,day[s].level,day[s].portions);n++}}
     if(n)shopView();else e.target.textContent="Nothing planned this week yet"};
   document.getElementById("addrecipe").onclick=recipePickSheet;
-  const add=()=>{const v=document.getElementById("newitem").value.trim();if(!v)return;shop.push({key:"own|"+Date.now(),name:v,unit:"",qty:null,staple:false,checked:false,src:[]});save("rb-shop",shop);shopView()};
+  const add=()=>{const v=document.getElementById("newitem").value.trim();if(!v)return;shop.push({key:"own|"+Date.now(),name:v,unit:"",qty:null,staple:false,checked:false,src:[]});setShop();shopView()};
   document.getElementById("additem").onclick=add;document.getElementById("newitem").onkeydown=e=>{if(e.key==="Enter")add()};
-  const ct=document.getElementById("clearticked");if(ct)ct.onclick=()=>{shop=shop.filter(x=>!x.checked);save("rb-shop",shop);shopView()};
-  const ca=document.getElementById("clearall");if(ca)ca.onclick=e=>{if(e.target.dataset.sure){shop=[];save("rb-shop",shop);shopView()}else{e.target.dataset.sure=1;e.target.textContent="Tap again to clear everything"}};
+  const ct=document.getElementById("clearticked");if(ct)ct.onclick=()=>{shop=shop.filter(x=>!x.checked);setShop();shopView()};
+  const ca=document.getElementById("clearall");if(ca)ca.onclick=e=>{if(e.target.dataset.sure){shop=[];setShop();shopView()}else{e.target.dataset.sure=1;e.target.textContent="Tap again to clear everything"}};
 }
 function recipePickSheet(){
   const p={id:null,level:"intermediate",portions:DEFAULT_PORTIONS};
@@ -240,6 +244,34 @@ function basics(){
     app.querySelectorAll(".bsec").forEach(sec=>{let n=0;sec.querySelectorAll("li").forEach(li=>{const ok=!q||li.dataset.s.includes(q);li.hidden=!ok;if(ok)n++});
       sec.querySelector(".bnote").hidden=!!q;sec.hidden=n===0;if(n)any=true});
     document.getElementById("bempty").hidden=any});
+}
+
+
+// ---------- sync between devices ----------
+const SYNC_LABEL={signedout:"Sync: sign in",idle:"Synced",synced:"Synced ✓",syncing:"Syncing…",offline:"Offline, will sync"};
+function syncBtn(){return Sync.enabled()?`<button class="btn small syncbtn" id="syncbtn">${SYNC_LABEL[Sync.status]||"Sync"}</button>`:""}
+function bindSync(){const b=document.getElementById("syncbtn");if(b)b.onclick=syncSheet}
+Sync.onStatus(s=>{const b=document.getElementById("syncbtn");if(b)b.textContent=SYNC_LABEL[s]||"Sync"});
+function syncSheet(){
+  const render=(s,msg="")=>{
+    if(Sync.email){s.innerHTML=`<div class="grab"></div><h2>Sync</h2><p>Signed in as <b>${esc(Sync.email)}</b>. Your schedule and shopping list are shared with every device where you sign in with this email.</p>
+      <div class="foot"><button class="btn" id="sout">Sign out</button><button class="btn primary" id="snow">Sync now</button></div>`;
+      s.querySelector("#sout").onclick=async()=>{await Sync.signOut();render(s)};
+      s.querySelector("#snow").onclick=async()=>{await Sync.pull();closeSheet()};return}
+    s.innerHTML=`<div class="grab"></div><h2>Sync your devices</h2><p>Sign in with the same email on your phone and tablet to share your schedule and shopping list.</p>
+      <input class="search" id="semail" type="email" autocomplete="email" placeholder="Email">
+      <input class="search" id="spass" type="password" autocomplete="current-password" placeholder="Password (at least 6 characters)">
+      ${msg?`<p class="flag" style="font-size:14px">${esc(msg)}</p>`:""}
+      <div class="foot"><button class="btn" id="sup">Create account</button><button class="btn primary" id="sin">Sign in</button></div>`;
+    const go=async fn=>{const e=s.querySelector("#semail").value.trim(),pw=s.querySelector("#spass").value;
+      if(!e||pw.length<6){render(s,"Enter your email and a password of at least 6 characters.");return}
+      const err=await fn(e,pw);
+      if(err==="CHECK_EMAIL")render(s,"Account created. Open the confirmation email, tap the link, then come back and sign in.");
+      else if(err)render(s,err);else render(s)};
+    s.querySelector("#sin").onclick=()=>go(Sync.signIn);
+    s.querySelector("#sup").onclick=()=>go(Sync.signUp);
+  };
+  openSheet("",render);
 }
 
 // ---------- timers ----------
@@ -290,5 +322,5 @@ let lastId=null;
 function route(){closeSheet();const id=location.hash.slice(1),r=byId(id);
   if(id==="basics"||id==="schedule"||id==="shop"){lastId=null;({basics,schedule:scheduleView,shop:shopView})[id]();window.scrollTo(0,0);return}
   if(r){if(id!==lastId){state.level="intermediate";state.portions=BASE;window.scrollTo(0,0)}lastId=id;dish(r)}else{lastId=null;list()}}
-window.addEventListener("hashchange",route);route();renderTimers();
+window.addEventListener("hashchange",route);route();renderTimers();Sync.init();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))}
