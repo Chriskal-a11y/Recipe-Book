@@ -32,8 +32,10 @@ function aheadOf(v){return v.steps.find(s=>s[2]==="a")}
 function heat(h){if(!h)return "";const [k,v]=h.split(":");
   const t=k==="H"?["hob","Hob",HOB[v]+" ("+v+")"]:k==="AF"?["af","Air fryer",v+"°C"]:["mw","Microwave",v+" W"];
   return `<span class="heat ${t[0]}">${t[1]} · ${t[2]}</span>`}
-function photo(r,cls=""){const c=`var(${CAT_COLOR[r.category]||"--accent"})`;
-  return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))"><span class="gr">${esc(r.nameGr)}</span><span class="ph">Photo later</span></div>`}
+function photo(r,cls="",ahead=false){const c=`var(${CAT_COLOR[r.category]||"--accent"})`;
+  return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${ahead?'<span class="badge">Prep night before</span>':""}<span class="gr">${esc(r.nameGr)}</span><span class="ph">Photo later</span></div>`}
+// Only cooking and waiting steps get a timer button; cutting and mixing steps just show their time.
+const needsTimer=s=>!!s[3]||/\b(rest|marinate|leave it|soak|fridge|simmer|boil|bake|roast|fry)/i.test(s[0]);
 function fmtQty(q,unit){
   if(q==null)return "";
   if(unit==="g"||unit==="ml"){q=q>=50?Math.round(q/5)*5:Math.round(q);
@@ -74,9 +76,9 @@ function list(){
     <div class="filterbar"><button class="btn" id="filters">${ICON.filter}Filters</button>
       <div class="active-filters">${filterLabels().map(([l,on])=>`<span class="tag ${on?"on":""}">${esc(l)}</span>`).join("")}</div></div></header>
     <div class="grid">${items.map(r=>{const v=r.versions.intermediate,a=aheadOf(v);
-      return `<button class="card" data-id="${r.id}">${photo(r)}<div class="body"><h3>${esc(r.name)}</h3>
-      <div class="meta"><span class="pill">Intermediate</span><span>${ICON.clock}${fmtMin(totalMin(v))}</span></div>
-      <div class="meta">${fmtK(kcalPerPortion(v))}${a?" · prep night before":""}</div></div></button>`}).join("")||'<div class="empty">No dishes match these filters.</div>'}</div>`;
+      return `<button class="card" data-id="${r.id}">${photo(r,"",a)}<div class="body"><h3>${esc(r.name)}</h3>
+      <span class="pill">Intermediate</span>
+      <div class="meta nowrap"><span>${ICON.clock}${fmtMin(totalMin(v))}</span><span>${fmtK(kcalPerPortion(v))}</span></div></div></button>`}).join("")||'<div class="empty">No dishes match these filters.</div>'}</div>`;
   document.getElementById("search").addEventListener("input",e=>{state.q=e.target.value;const pos=e.target.selectionStart;list();const n=document.getElementById("search");n.focus();n.setSelectionRange(pos,pos)});
   document.getElementById("filters").onclick=filterSheet;
   app.querySelectorAll(".card").forEach(b=>b.onclick=()=>{location.hash=b.dataset.id});
@@ -115,8 +117,8 @@ function dish(r){
       <ul class="ing">${main.map(i=>`<li><span class="q">${fmtQty(i[0]*k,i[1])}</span><span>${esc(i[2])}</span></li>`).join("")}</ul>
       ${staples.length?`<div class="staples"><b>From your pantry:</b> ${staples.map(i=>esc((i[0]!=null?fmtQty(i[0]*k,i[1])+" ":"")+i[2])).join(", ")}</div>`:""}</div>
     <div class="section"><h3>Steps</h3><ol class="steps">${v.steps.filter(s=>s[2]!=="a").map((s,i)=>`<li><div>${esc(s[0])}<div class="tags">${heat(s[3])}${s[2]==="p"?'<span class="flag">Runs alongside the other steps</span>':""}</div></div>
-      <button class="tbtn" data-step="${i}" aria-label="Start a ${s[1]} minute timer">${ICON.play}${fmtMin(s[1])}</button></li>`).join("")}</ol>
-      <p class="flag" style="margin-top:8px">Tap a step's time to start a timer.</p></div>
+      ${needsTimer(s)?`<button class="tbtn" data-step="${i}" aria-label="Start a ${s[1]} minute timer">${ICON.play}${fmtMin(s[1])}</button>`:`<span class="tbtn plain">${fmtMin(s[1])}</span>`}</li>`).join("")}</ol>
+      <p class="flag" style="margin-top:8px">Tap a cooking step's time to start a timer.</p></div>
     <p class="note">Calories are rough estimates per portion.</p></div>`;
   document.getElementById("back").onclick=()=>{location.hash=""};
   app.querySelectorAll("[data-level]").forEach(b=>b.onclick=()=>{state.level=b.dataset.level;dish(r)});
