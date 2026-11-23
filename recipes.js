@@ -159,3 +159,20 @@ const BASICS = [
  {title:"Is it cooked?", note:"A cheap probe thermometer takes the guessing out.",
   rows:[["Chicken","75°C in the thickest part, juices run clear"],["Minced meat (biftekia)","71°C, no pink in the middle"],["Salmon","Flakes easily; 63°C is the official safe temperature"],["Pork chops","63°C, then rest 3 min"]]}
 ];
+
+// Calorie estimates. KCAL: kcal per 100 g (or 100 ml). WEIGHT: grams for one piece of an ingredient with no unit.
+// UNIT_G: grams per unit. Estimates only.
+const KCAL = {"brown lentils":350,"long-grain rice":360,"spaghetti":360,"orzo":360,"hilopites (egg noodles)":380,"dried chickpeas":364,"dried white beans":335,
+ "frozen peas":80,"green beans":31,"onion":40,"garlic":149,"carrot":41,"celery":16,"potatoes":77,"courgette":17,"aubergine":25,"red pepper":31,"leek":61,
+ "spring onions":32,"ripe tomatoes":18,"cherry tomatoes":18,"chopped tomatoes (tin)":21,"whole peeled tomatoes (tin)":21,"tomato paste":82,"frozen artichoke hearts":47,
+ "beef mince":250,"pork mince":260,"beef chuck":200,"chicken thighs (bone-in)":165,"salmon fillets (about 150 g each)":208,"feta":264,"kefalotyri":380,"aged graviera":400,
+ "Greek yogurt":120,"butter":717,"olive oil":884,"sunflower oil":884,"honey":304,"sugar":400,"plain flour":364,"cocoa powder":228,"milk":60,"dark chocolate":550,
+ "hazelnut spread":540,"hazelnuts":628,"pistachios":560,"walnuts":654,"raisins":299,"Metaxa or brandy":230,"vanilla ice cream":207,"egg":143,"breadcrumbs":395,"tahini":595,
+ "Kalamata olives":240,"lemon":29,"orange":47,"dry red wine":85,"dry white wine":82,"vegetable stock":5,"chicken stock":15,"beef stock":15,"mustard":66,"Dijon mustard":66,
+ "apples":52,"cucumber":15,"parsley":36,"dill":43,"mint":44,"basil":23,"red wine vinegar":20};
+const WEIGHT = {"onion":150,"carrot":80,"potatoes":200,"lemon":40,"courgette":200,"red pepper":150,"aubergine":300,"leek":150,"egg":55,"apples":180,"cucumber":300,
+ "orange":5,"ripe tomatoes":120,"spring onions":15,"salmon fillets (about 150 g each)":150,"Kalamata olives":4};
+const UNIT_G = {"g":1,"ml":1,"L":1000,"kg":1000,"tbsp":15,"tsp":5,"cloves":5,"bunch":30,"sprig":1,"sprigs":1,"stalk":40,"stalks":40,"pinch":0.5,"scoops":60,"strip":2,"head":40};
+function kcalPerPortion(v){let t=0;for(const [q,u,n] of v.ing){if(q==null||!(n in KCAL))continue;
+  let g=u?(UNIT_G[u]??0)*q:(WEIGHT[n]??0)*q; if((n==="olive oil"||n==="sunflower oil")&&(u==="ml"||u==="L"||u==="tbsp"||u==="tsp"))g*=0.92; t+=g*KCAL[n]/100}
+  return Math.round(t/BASE/10)*10}
