@@ -37,7 +37,8 @@ function heat(h){if(!h)return "";const [k,v]=h.split(":");
   return `<span class="heat ${t[0]}">${t[1]} · ${t[2]}</span>`}
 function photo(r,cls="",ahead=false){const c=`var(${CAT_COLOR[r.category]||"--accent"})`,u=Photos.url(r.id);
   const badge=ahead?'<span class="badge">Prep night before</span>':"";
-  if(u)return `<div class="photo has-img ${cls}">${badge}<img src="${u}" alt="${esc(r.name)}"></div>`;
+  const st=STOCK[r.id];
+  if(u||st)return `<div class="photo has-img ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<img src="${u||st.src}" alt="${esc(r.name)}" loading="lazy" onerror="this.remove()"></div>`;
   return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<span class="gr">${esc(r.nameGr)}</span></div>`}
 // Only cooking and waiting steps get a timer button; cutting and mixing steps just show their time.
 const needsTimer=s=>!!s[3]||/\b(rest|marinate|leave it|soak|fridge|simmer|boil|bake|roast|fry)/i.test(s[0]);
@@ -111,6 +112,7 @@ function dish(r){
   app.innerHTML=`<div class="dish"><button class="back" id="back">← All dishes</button>
     <div class="levels"><div class="seg" role="group" aria-label="Version">${LEVELS.map(([k2,l])=>`<button data-level="${k2}" aria-pressed="${k2===state.level}">${l}</button>`).join("")}</div></div>
     ${photo(r,"hero")}
+    ${!Photos.url(r.id)&&STOCK[r.id]?`<p class="credit">Stock photo: <a href="${STOCK[r.id].page}" target="_blank" rel="noopener">${esc(STOCK[r.id].by)}, ${esc(STOCK[r.id].lic)}</a></p>`:""}
     <div class="title"><div class="label">${esc(r.category)} · ${r.meals.map(esc).join(", ")}</div><h2>${esc(r.name)}</h2><div class="sub">${esc(r.nameGr)}</div></div>
     <div class="facts"><div class="fact"><span class="label">Total time</span><b>${fmtMin(totalMin(v))}</b></div>
       <div class="fact"><span class="label">Calories</span><b>${fmtK(kcalPerPortion(v))}</b><span class="flag">per portion</span></div>

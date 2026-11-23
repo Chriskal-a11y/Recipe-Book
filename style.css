@@ -176,3 +176,5 @@ ul.basics .q{font-weight:500;text-align:right}
 .kdish{display:flex;gap:10px;align-items:center;background:color-mix(in srgb,var(--k) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--k) 30%,var(--line));border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .kopen{flex:1;min-width:0;text-align:left;border:none;background:none;padding:0;display:flex;flex-direction:column;gap:4px}
 .kmiss{font-size:13px;color:var(--warn)}
+.credit{margin:6px 0 0;font-size:11.5px;color:var(--muted)}
+.credit a{color:inherit}
