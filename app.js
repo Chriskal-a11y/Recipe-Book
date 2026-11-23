@@ -39,7 +39,7 @@ function photo(r,cls="",ahead=false){const c=`var(${CAT_COLOR[r.category]||"--ac
   const badge=ahead?'<span class="badge">Prep night before</span>':"";
   const st=STOCK[r.id];
   if(u||st)return `<div class="photo has-img ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<img src="${u||st.src}" alt="${esc(r.name)}" loading="lazy" onerror="this.remove()"></div>`;
-  return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<span class="gr">${esc(r.nameGr)}</span></div>`}
+  return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<span class="gr">${esc(r.nameGr||r.name)}</span></div>`}
 // Only cooking and waiting steps get a timer button; cutting and mixing steps just show their time.
 const needsTimer=s=>!!s[3]||/\b(rest|marinate|leave it|soak|fridge|simmer|boil|bake|roast|fry)/i.test(s[0]);
 function fmtP(p){return String(Math.round(p*10)/10)}
@@ -52,7 +52,7 @@ function fmtQty(q,unit){
   let r=Math.round(q*4)/4; if(r===0)r=0.25;
   const w=Math.floor(r),f=r-w,fr={0.25:"¼",0.5:"½",0.75:"¾"}[f]||"";
   const n=(w?w:"")+fr; return unit?`${n} ${unit}`:n}
-const fmtK=n=>"≈ "+n.toLocaleString("en")+" kcal";
+const fmtK=n=>n?"≈ "+n.toLocaleString("en")+" kcal":"– kcal";
 function isoDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function weekDays(off){const d=new Date();d.setHours(12,0,0,0);const dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow+off*7);
   return [...Array(7)].map((_,i)=>{const x=new Date(d);x.setDate(d.getDate()+i);return x})}
@@ -60,8 +60,8 @@ const app=document.getElementById("app");
 
 // ---------- bottom island ----------
 function island(active){
-  const items=[["dishes","#","Dishes"],["schedule","#schedule","Schedule"],["shop","#shop","Ingredients"],["basics","#basics","Basics"]];
-  document.getElementById("island").innerHTML=items.map(([k,h,l])=>`<a href="${h}" ${k===active?'aria-current="page"':""}>${ICON[k]}<span>${l}</span></a>`).join("");
+  const items=[["dishes","#","Dishes"],["schedule","#schedule","Schedule"],["new","#new","New recipe"],["shop","#shop","Ingredients"],["basics","#basics","Basics"]];
+  document.getElementById("island").innerHTML=items.map(([k,h,l])=>k==="new"?`<a href="${h}" class="plus" aria-label="${l}" ${k===active?'aria-current="page"':""}>+</a>`:`<a href="${h}" ${k===active?'aria-current="page"':""}>${ICON[k]}<span>${l}</span></a>`).join("");
 }
 
 // ---------- sheet ----------
@@ -112,7 +112,7 @@ function dish(r){
   const v=r.versions[state.level],a=aheadOf(v),k=state.portions/BASE;
   const main=v.ing.filter(i=>!i[3]),staples=v.ing.filter(i=>i[3]);
   app.innerHTML=`<div class="dish"><button class="back" id="back">← All dishes</button>
-    <div class="levels"><div class="seg" role="group" aria-label="Version">${LEVELS.map(([k2,l])=>`<button data-level="${k2}" aria-pressed="${k2===state.level}">${l}</button>`).join("")}</div></div>
+    ${r.mine?'<div class="levels"><div class="mine-note">Your recipe · <a href="#edit-'+r.id+'">Edit</a></div></div>':""}<div class="levels" ${r.mine?"hidden":""}><div class="seg" role="group" aria-label="Version">${LEVELS.map(([k2,l])=>`<button data-level="${k2}" aria-pressed="${k2===state.level}">${l}</button>`).join("")}</div></div>
     <div class="herowrap">${photo(r,"hero")}<label class="photobtn" for="photoin">📷 ${Photos.url(r.id)?"Change photo":"Add your photo"}</label></div>
     ${!Photos.url(r.id)&&STOCK[r.id]?`<p class="credit">Stock photo: <a href="${STOCK[r.id].page}" target="_blank" rel="noopener">${esc(STOCK[r.id].by)}, ${esc(STOCK[r.id].lic)}</a></p>`:""}
     <div class="title"><div class="label">${esc(r.category)} · ${r.meals.map(esc).join(", ")}</div><h2>${esc(r.name)}</h2><div class="sub">${esc(r.nameGr)}</div></div>
@@ -387,7 +387,8 @@ setInterval(tick,500);
 // ---------- routing ----------
 let lastId=null;
 function route(){closeSheet();const id=location.hash.slice(1),r=byId(id);
+  if(id==="new"||id.startsWith("edit-")){lastId=null;recipeForm(id==="new"?null:id.slice(5));return}
   if(id==="basics"||id==="schedule"||id==="shop"||id==="kitchen"){lastId=null;({basics,schedule:scheduleView,shop:shopView,kitchen:kitchenView})[id]();window.scrollTo(0,0);return}
-  if(r){if(id!==lastId){state.level=state.pendingLevel||"intermediate";state.portions=BASE;window.scrollTo(0,0)}state.pendingLevel=null;lastId=id;dish(r)}else{lastId=null;list()}}
+  if(r){if(id!==lastId){state.level=state.pendingLevel||"intermediate";state.portions=r.portions||BASE;window.scrollTo(0,0)}state.pendingLevel=null;lastId=id;dish(r)}else{lastId=null;list()}}
 window.addEventListener("hashchange",route);route();renderTimers();Photos.loadAll().then(()=>{if(document.getElementById("sheet").hidden)route()});Sync.init();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))}

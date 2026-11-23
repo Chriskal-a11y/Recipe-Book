@@ -186,3 +186,16 @@ ul.ing li.main{grid-template-columns:92px 1fr auto;align-items:center}
 .penform[hidden]{display:none}
 .penform input{width:110px;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
 .slotbtn.out{font-style:italic}
+.island{grid-template-columns:1fr 1fr 44px 1fr 1fr;align-items:center}
+.island a.plus{justify-content:center;height:44px;padding:0;font-size:28px;font-weight:500;line-height:1;color:var(--accent-ink);background:var(--accent);border-color:var(--accent);border-radius:14px}
+.island a.plus[aria-current="page"]{outline:2px solid var(--accent);outline-offset:2px}
+.mine-note{font-size:14px;color:var(--muted);font-weight:600}.mine-note a{color:var(--accent)}
+.newrecipe h1{margin:6px 0 12px}
+.fld{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted);margin:10px 0}
+.fld input,.fld select,.fld textarea,.paste textarea{font:inherit;font-weight:400;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%;box-sizing:border-box}
+.fld textarea,.paste textarea{resize:vertical;line-height:1.45}
+.paste{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:6px}
+.paste summary{font-weight:600;cursor:pointer}.paste textarea{margin:6px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-weight:500;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
+.fld .chip input{width:auto;padding:0;margin:0}
