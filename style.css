@@ -180,3 +180,8 @@ ul.basics .q{font-weight:500;text-align:right}
 .credit a{color:inherit}
 .herowrap{position:relative}
 .photobtn{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font:600 13px Inter,sans-serif;padding:8px 12px;border-radius:999px;cursor:pointer}
+ul.ing li.main{grid-template-columns:92px 1fr auto;align-items:center}
+.pen{border:1px solid var(--line);background:var(--surface);color:var(--accent);border-radius:999px;width:34px;height:34px;font-size:17px;cursor:pointer}
+.penform{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+.penform[hidden]{display:none}
+.penform input{width:110px;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}

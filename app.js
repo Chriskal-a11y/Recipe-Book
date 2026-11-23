@@ -42,6 +42,8 @@ function photo(r,cls="",ahead=false){const c=`var(${CAT_COLOR[r.category]||"--ac
   return `<div class="photo ${cls}" style="background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 60%,#000))">${badge}<span class="gr">${esc(r.nameGr)}</span></div>`}
 // Only cooking and waiting steps get a timer button; cutting and mixing steps just show their time.
 const needsTimer=s=>!!s[3]||/\b(rest|marinate|leave it|soak|fridge|simmer|boil|bake|roast|fry)/i.test(s[0]);
+function fmtP(p){return String(Math.round(p*10)/10)}
+function unitName(u){return u==="g"?"grams":u==="ml"?"ml":u==="L"?"litres":u||"pieces"}
 function fmtQty(q,unit){
   if(q==null)return "";
   if(unit==="g"||unit==="ml"){q=q>=50?Math.round(q/5)*5:Math.round(q);
@@ -122,8 +124,10 @@ function dish(r){
     <div class="actions"><button class="btn small" id="toshop">Add ingredients to list</button><button class="btn small" id="toplan">Add to schedule</button>
       ${Photos.url(r.id)?'<button class="btn small" id="photorm">Remove my photo</button>':""}
       <input type="file" id="photoin" accept="image/*" hidden></div><p class="flag" id="photomsg" hidden></p>
-    <div class="section"><h3>Ingredients <span class="stepper"><button id="minus" aria-label="Fewer portions">−</button><span>${state.portions} portion${state.portions>1?"s":""}</span><button id="plus" aria-label="More portions">+</button></span></h3>
-      <ul class="ing">${main.map(i=>`<li><span class="q">${fmtQty(i[0]*k,i[1])}</span><span>${esc(i[2])}</span></li>`).join("")}</ul>
+    <div class="section"><h3>Ingredients <span class="stepper"><button id="minus" aria-label="Fewer portions">−</button><span>${fmtP(state.portions)} portion${state.portions!==1?"s":""}</span><button id="plus" aria-label="More portions">+</button></span></h3>
+      <ul class="ing">${main.map((i,n)=>n===0&&i[0]!=null?`<li class="main"><span class="q">${fmtQty(i[0]*k,i[1])}</span><span>${esc(i[2])}</span><button class="pen" id="pen" aria-label="Change the amount of ${esc(i[2])}">✎</button>
+        <form class="penform" id="penform" hidden><input type="number" id="penin" inputmode="decimal" min="0" step="any" value="${Math.round(i[0]*k*100)/100}"><span>${esc(unitName(i[1]))}</span><button class="btn small primary">Set</button></form></li>`
+        :`<li><span class="q">${fmtQty(i[0]*k,i[1])}</span><span>${esc(i[2])}</span></li>`).join("")}</ul>
       ${staples.length?`<div class="staples"><b>From your pantry:</b> ${staples.map(i=>esc((i[0]!=null?fmtQty(i[0]*k,i[1])+" ":"")+i[2])).join(", ")}</div>`:""}</div>
     <div class="section"><h3>Steps</h3><ol class="steps">${v.steps.filter(s=>s[2]!=="a").map((s,i)=>`<li><div>${esc(s[0])}<div class="tags">${heat(s[3])}${s[2]==="p"?'<span class="flag">Runs alongside the other steps</span>':""}</div></div>
       ${needsTimer(s)?`<button class="tbtn" data-step="${i}" aria-label="Start a ${s[1]} minute timer">${ICON.play}${fmtMin(s[1])}</button>`:`<span class="tbtn plain">${fmtMin(s[1])}</span>`}</li>`).join("")}</ol>
@@ -131,8 +135,13 @@ function dish(r){
     <p class="note">Calories are rough estimates per portion.</p></div>`;
   document.getElementById("back").onclick=()=>{location.hash=""};
   app.querySelectorAll("[data-level]").forEach(b=>b.onclick=()=>{state.level=b.dataset.level;dish(r)});
-  document.getElementById("minus").onclick=()=>{if(state.portions>1){state.portions--;dish(r)}};
-  document.getElementById("plus").onclick=()=>{if(state.portions<20){state.portions++;dish(r)}};
+  document.getElementById("minus").onclick=()=>{const p=Math.ceil(state.portions-1e-9)-1;if(p>=1){state.portions=p;dish(r)}};
+  document.getElementById("plus").onclick=()=>{const p=Math.floor(state.portions+1e-9)+1;if(p<=20){state.portions=p;dish(r)}};
+  // Pen on the main ingredient: type how much you have, everything else follows.
+  const pen=document.getElementById("pen");if(pen){const f=document.getElementById("penform"),inp=document.getElementById("penin");
+    pen.onclick=()=>{f.hidden=!f.hidden;if(!f.hidden){inp.focus();inp.select()}};
+    f.onsubmit=e=>{e.preventDefault();const val=parseFloat(String(inp.value).replace(",","."));if(!(val>0))return;
+      state.portions=Math.min(40,Math.max(0.1,val/main[0][0]*BASE));dish(r)}}
   const steps=v.steps.filter(s=>s[2]!=="a");
   app.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{const i=+b.dataset.step;startTimer(`${r.name} · step ${i+1}`,steps[i][1])});
   document.getElementById("toshop").onclick=e=>{addRecipeToShop(r.id,state.level,state.portions);e.target.textContent="Added to Ingredients ✓"};
