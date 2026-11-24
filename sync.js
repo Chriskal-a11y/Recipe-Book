@@ -29,7 +29,7 @@ const Sync = (() => {
     setStatus("syncing");
     const row = { user_id: user.id, schedule, schedule_at: meta.scheduleAt, shop, shop_at: meta.shopAt, updated_at: new Date().toISOString() };
     if (hasPantryCol) Object.assign(row, { pantry, pantry_at: meta.pantryAt });
-    if (hasMyCol) Object.assign(row, { myrecipes: myRecipes, myrecipes_at: meta.myrecipesAt });
+    if (hasMyCol) Object.assign(row, { myrecipes: packMine(), myrecipes_at: meta.myrecipesAt });
     let { error } = await client.from("user_data").upsert(row);
     for (let tries = 0; error && tries < 2; tries++) { // drop columns the database doesn't have yet, then try again
       const msg = error.message || "";
@@ -56,7 +56,7 @@ const Sync = (() => {
         else if (meta.pantryAt > data.pantry_at) needPush = true;
       } else hasPantryCol = false;
       if ("myrecipes" in data) {
-        if (data.myrecipes_at > meta.myrecipesAt) { myRecipes = data.myrecipes || []; meta.myrecipesAt = data.myrecipes_at; setMyRecipes(); changed = true; }
+        if (data.myrecipes_at > meta.myrecipesAt) { meta.myrecipesAt = data.myrecipes_at; unpackMine(data.myrecipes); changed = true; }
         else if (meta.myrecipesAt > data.myrecipes_at) needPush = true;
       } else hasMyCol = false;
       save("rb-meta", meta);

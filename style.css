@@ -199,3 +199,10 @@ ul.ing li.main{grid-template-columns:92px 1fr auto;align-items:center}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:center;gap:5px;font-weight:500;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
 .fld .chip input{width:auto;padding:0;margin:0}
+.card{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.card.selected{outline:3px solid var(--accent);outline-offset:-1px;position:relative}
+.card.selected::after{content:"✓";position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700}
+.selbar{position:fixed;z-index:31;left:50%;transform:translateX(-50%);bottom:calc(var(--island-h) + 24px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100% - 24px));display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:8px 10px;box-shadow:0 8px 28px rgba(0,0,0,.14)}
+.selbar span{flex:1;font-weight:600}
+.btn.danger{background:#b3261e;border-color:#b3261e;color:#fff}.btn[disabled]{opacity:.5}
+.restore{text-align:center;margin:18px 0}.linkbtn{background:none;border:none;color:var(--accent);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}

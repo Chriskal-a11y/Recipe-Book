@@ -2,6 +2,37 @@
 // They are added to RECIPES when the app starts, so they show up everywhere like the built-in dishes.
 let myRecipes = (() => { try { return JSON.parse(localStorage.getItem("rb-myrecipes")) || []; } catch (e) { return []; } })();
 RECIPES.push(...myRecipes);
+// Built-in dishes you deleted are only hidden, so they can be brought back.
+let hiddenIds = (() => { try { return JSON.parse(localStorage.getItem("rb-hidden")) || []; } catch (e) { return []; } })();
+const isHidden = r => hiddenIds.includes(r.id);
+function setHidden() { try { localStorage.setItem("rb-hidden", JSON.stringify(hiddenIds)); } catch (e) {} }
+// What goes to the cloud: your recipes plus one entry listing the hidden dishes.
+const packMine = () => [...myRecipes, { id: "__hidden", ids: hiddenIds }];
+function unpackMine(arr) { arr = arr || []; const h = arr.find(x => x.id === "__hidden");
+  hiddenIds = h ? h.ids : []; setHidden(); myRecipes = arr.filter(x => x.id !== "__hidden"); setMyRecipes(); }
+function deleteDishes(ids) {
+  myRecipes = myRecipes.filter(r => !ids.includes(r.id));
+  for (const id of ids) if (!id.startsWith("my-") && !hiddenIds.includes(id)) hiddenIds.push(id);
+  setHidden(); setMyRecipes(); Sync.touch("myrecipes");
+}
+function restoreHidden() { hiddenIds = []; setHidden(); Sync.touch("myrecipes"); }
+
+// ---------- sharing ----------
+const APP_URL = "https://chriskal-a11y.github.io/Recipe-Book/";
+function recipeText(r) {
+  const v = r.versions.intermediate, k = (r.portions || BASE) / BASE;
+  return `${r.name}${r.nameGr ? " (" + r.nameGr + ")" : ""}\n${fmtMin(totalMin(v))} · ${r.portions || BASE} portions\n\nIngredients:\n` +
+    v.ing.map(i => "- " + (i[0] != null ? fmtQty(i[0] * k, i[1]) + " " : "") + i[2]).join("\n") +
+    "\n\nSteps:\n" + v.steps.map((s, n) => `${n + 1}. ${s[0]}`).join("\n");
+}
+async function shareRecipe(r, level) {
+  const hello = "Hey check this recipe out!";
+  // Built-in dishes have their own page with a preview picture; your own recipes are sent as text.
+  const url = r.mine ? APP_URL : APP_URL + "share/" + r.id + ".html";
+  const text = r.mine ? hello + "\n\n" + recipeText(r) + "\n\nMade with my recipe app: " : hello + " " + r.name;
+  try { if (navigator.share) { await navigator.share({ title: r.name, text, url }); return; } } catch (e) { if (e.name === "AbortError") return; }
+  window.open("https://wa.me/?text=" + encodeURIComponent(text + " " + url), "_blank");
+}
 
 function setMyRecipes() {
   try { localStorage.setItem("rb-myrecipes", JSON.stringify(myRecipes)); } catch (e) {}
@@ -113,6 +144,6 @@ function recipeForm(editId) {
     location.hash = r.id;
   };
   if ($("fdel")) $("fdel").onclick = e => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = "Tap again to delete"; return; }
-    myRecipes = myRecipes.filter(x => x.id !== old.id); setMyRecipes(); Sync.touch("myrecipes"); location.hash = ""; };
+    deleteDishes([old.id]); location.hash = ""; };
 }
 function fmtNum(n) { return String(Math.round(n * 100) / 100); }

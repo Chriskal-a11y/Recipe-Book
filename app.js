@@ -78,18 +78,30 @@ function matches(r,f=state){const q=f.q.trim().toLowerCase(),tf=TIMES.find(t=>t[
   return (f.cat==="all"||r.category===f.cat)&&(f.meal==="all"||r.meals.includes(f.meal))&&tf(totalMin(r.versions.intermediate))&&(!q||(r.name+" "+r.nameGr).toLowerCase().includes(q))}
 function list(){
   island("dishes");
-  const items=RECIPES.filter(r=>matches(r));
+  const items=RECIPES.filter(r=>!isHidden(r)&&matches(r)),sel=state.sel;
   app.innerHTML=`<header class="top"><h1>My Recipe Book</h1>
-    <input class="search" id="search" type="search" placeholder="Search ${RECIPES.length} dishes" value="${esc(state.q)}">
+    <input class="search" id="search" type="search" placeholder="Search ${RECIPES.filter(r=>!isHidden(r)).length} dishes" value="${esc(state.q)}">
     <div class="filterbar"><button class="btn" id="filters">${ICON.filter}Filters</button>
       <div class="active-filters">${filterLabels().map(([l,on])=>`<span class="tag ${on?"on":""}">${esc(l)}</span>`).join("")}</div></div></header>
     <div class="grid">${items.map(r=>{const v=r.versions.intermediate,a=aheadOf(v);
-      return `<button class="card" data-id="${r.id}">${photo(r,"",a)}<div class="body"><h3>${esc(r.name)}</h3>
+      return `<button class="card ${sel&&sel.has(r.id)?"selected":""}" data-id="${r.id}">${photo(r,"",a)}<div class="body"><h3>${esc(r.name)}</h3>
       <span class="pill">Intermediate</span>
-      <div class="meta nowrap"><span>${ICON.clock}${fmtMin(totalMin(v))}</span><span>${fmtK(kcalPerPortion(v))}</span></div></div></button>`}).join("")||'<div class="empty">No dishes match these filters.</div>'}</div>`;
+      <div class="meta nowrap"><span>${ICON.clock}${fmtMin(totalMin(v))}</span><span>${fmtK(kcalPerPortion(v))}</span></div></div></button>`}).join("")||'<div class="empty">No dishes match these filters.</div>'}</div>
+    ${hiddenIds.length?`<p class="restore"><button class="linkbtn" id="restore">Bring back ${hiddenIds.length} deleted dish${hiddenIds.length>1?"es":""}</button></p>`:""}
+    ${sel?`<div class="selbar"><span>${sel.size} selected</span><button class="btn small" id="selcancel">Cancel</button><button class="btn small danger" id="seldel" ${sel.size?"":"disabled"}>Delete</button></div>`:""}`;
   document.getElementById("search").addEventListener("input",e=>{state.q=e.target.value;const pos=e.target.selectionStart;list();const n=document.getElementById("search");n.focus();n.setSelectionRange(pos,pos)});
   document.getElementById("filters").onclick=filterSheet;
-  app.querySelectorAll(".card").forEach(b=>b.onclick=()=>{location.hash=b.dataset.id});
+  // Tap opens a dish. Press and hold selects it; then taps add or remove dishes from the selection.
+  app.querySelectorAll(".card").forEach(b=>{let t=null,held=false;
+    const toggle=()=>{const id=b.dataset.id;if(!state.sel)state.sel=new Set();state.sel.has(id)?state.sel.delete(id):state.sel.add(id);list()};
+    b.addEventListener("pointerdown",()=>{held=false;t=setTimeout(()=>{held=true;if(navigator.vibrate)navigator.vibrate(30);if(!state.sel||!state.sel.has(b.dataset.id))toggle()},500)});
+    ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>clearTimeout(t)));
+    b.addEventListener("contextmenu",e=>e.preventDefault());
+    b.onclick=()=>{if(held){held=false;return}if(state.sel)toggle();else location.hash=b.dataset.id}});
+  const rs=document.getElementById("restore");if(rs)rs.onclick=()=>{restoreHidden();list()};
+  if(sel){document.getElementById("selcancel").onclick=()=>{state.sel=null;list()};
+    document.getElementById("seldel").onclick=e=>{if(!sel.size)return;if(!e.target.dataset.sure){e.target.dataset.sure=1;e.target.textContent=`Tap again to delete ${sel.size}`;return}
+      deleteDishes([...sel]);state.sel=null;list()}}
 }
 function filterSheet(){
   const d={cat:state.cat,meal:state.meal,time:state.time,q:state.q};
@@ -121,7 +133,7 @@ function dish(r){
       <div class="fact"><span class="label">Difficulty</span><b>${v.difficulty}</b></div>
       <div class="fact"><span class="label">Keeps</span><b>${r.keeps} day${r.keeps>1?"s":""}</b></div></div>
     ${a?`<div class="ahead"><b>Start the night before.</b> ${esc(a[0])}</div>`:""}
-    <div class="actions"><button class="btn small" id="toshop">Add ingredients to list</button><button class="btn small" id="toplan">Add to schedule</button>
+    <div class="actions"><button class="btn small" id="toshop">Add ingredients to list</button><button class="btn small" id="toplan">Add to schedule</button><button class="btn small" id="share">Share</button>
       ${Photos.url(r.id)?'<button class="btn small" id="photorm">Remove my photo</button>':""}
       <input type="file" id="photoin" accept="image/*" hidden></div><p class="flag" id="photomsg" hidden></p>
     <div class="section"><h3>Ingredients <span class="stepper"><button id="minus" aria-label="Fewer portions">−</button><span>${fmtP(state.portions)} portion${state.portions!==1?"s":""}</span><button id="plus" aria-label="More portions">+</button></span></h3>
@@ -148,6 +160,7 @@ function dish(r){
   document.getElementById("photoin").onchange=async e=>{const f=e.target.files[0];if(!f)return;const m=document.getElementById("photomsg");m.hidden=false;m.textContent="Saving photo…";
     try{await Photos.add(r.id,f);dish(r)}catch(err){m.textContent=err.message}};
   const prm=document.getElementById("photorm");if(prm)prm.onclick=async e=>{if(e.target.dataset.sure){await Photos.remove(r.id);dish(r)}else{e.target.dataset.sure=1;e.target.textContent="Tap again to remove"}};
+  document.getElementById("share").onclick=()=>shareRecipe(r,state.level);
   document.getElementById("toplan").onclick=()=>planSheet(null,null,{id:r.id,level:state.level,portions:DEFAULT_PORTIONS});
 }
 
@@ -178,7 +191,7 @@ function planSheet(date,slot,current){
   if(!date){date=isoDate(new Date());slot=SLOTS[1]}
   let q="";
   const render=s=>{
-    const list=RECIPES.filter(r=>!q||(r.name+" "+r.nameGr).toLowerCase().includes(q));
+    const list=RECIPES.filter(r=>!isHidden(r)).filter(r=>!q||(r.name+" "+r.nameGr).toLowerCase().includes(q));
     s.innerHTML=`<div class="grab"></div><h2>Plan a meal</h2>
       <div class="row"><select id="pday" class="search" style="flex:2">${days.map(d=>`<option value="${isoDate(d)}" ${isoDate(d)===date?"selected":""}>${d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}</option>`).join("")}</select>
         <select id="pslot" class="search" style="flex:1">${SLOTS.map(x=>`<option ${x===slot?"selected":""}>${x}</option>`).join("")}</select></div>
@@ -386,7 +399,7 @@ setInterval(tick,500);
 
 // ---------- routing ----------
 let lastId=null;
-function route(){closeSheet();const id=location.hash.slice(1),r=byId(id);
+function route(){closeSheet();if(location.hash.length>1)state.sel=null;const id=location.hash.slice(1),r=byId(id);
   if(id==="new"||id.startsWith("edit-")){lastId=null;recipeForm(id==="new"?null:id.slice(5));return}
   if(id==="basics"||id==="schedule"||id==="shop"||id==="kitchen"){lastId=null;({basics,schedule:scheduleView,shop:shopView,kitchen:kitchenView})[id]();window.scrollTo(0,0);return}
   if(r){if(id!==lastId){state.level=state.pendingLevel||"intermediate";state.portions=r.portions||BASE;window.scrollTo(0,0)}state.pendingLevel=null;lastId=id;dish(r)}else{lastId=null;list()}}
